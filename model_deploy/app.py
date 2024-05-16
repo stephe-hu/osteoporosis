@@ -3,10 +3,13 @@ import pickle
 from flask import Flask, render_template, request
 from lime import lime_tabular
 import os
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 
-current_dir = os.path.dirname(os.path.abspath(__name__))
-data_dir = os.path.join(current_dir, 'model_dev', 'dataset', 'processed')
-model_dir = os.path.join(current_dir, 'model_dev', 'models')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/dataset/processed'
+# model_dir = os.path.join(current_dir, 'model_dev', 'models')
+model_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/models'
 
 ## load in values for ordinal encoding
 mapping_age = pd.read_csv(os.path.join(data_dir, 'mapping_age.csv'))
@@ -30,7 +33,7 @@ mapping_age_list = mapping_age['age'].tolist()
 mapping_alcohol_consumption_list = mapping_alcohol_consumption['alcohol_consumption'].tolist()
 mapping_body_weight_list = mapping_body_weight['body_weight'].tolist()
 mapping_calcium_intake_list = mapping_calcium_intake['calcium_intake'].tolist()
-mapping_family_history_list = maping_family_history['vict_family_history'].tolist()
+mapping_family_history_list = maping_family_history['family_history'].tolist()
 mapping_gender_list = mapping_gender['gender'].tolist()
 mapping_hormonal_changes_list = mapping_hormonal_changes['hormonal_changes'].tolist()
 mapping_medical_conditions_list = mapping_medical_conditions['medical_conditions'].tolist()
@@ -44,11 +47,14 @@ mapping_vitamin_d_intake_list = mapping_vitamin_d_intake['vitamin_d_intake'].tol
 
 
 ## load in the model, scaler
-scalar_path = os.path.join(model_dir, 'osteoporosis_scalar.sav')
-loaded_scalar = pickle.load(open(scalar_path, 'rb'))
+scaler_path = os.path.join(model_dir, 'osteoporosis_scalar.sav')
+loaded_scaler = pickle.load(open(scaler_path, 'rb'))
 model_path = os.path.join(model_dir, 'xgboost_model.sav')
 loaded_model = pickle.load(open(model_path, 'rb'))
-
+x_train_path = os.path.join(model_dir, 'X_train.sav')
+loaded_X_train = pickle.load(open(x_train_path, 'rb'))
+x_columns_path = os.path.join(model_dir, 'X_columns.sav')
+loaded_X_columns = pickle.load(open(x_columns_path, 'rb'))
 
 app = Flask(__name__)
 
@@ -67,7 +73,6 @@ def index():
         hormonal_changes = request.form['hormonal_changes']
         medical_conditions = request.form['medical_conditions']
         medications = request.form['medications']
-        osteoporosis = request.form['osteoporosis']
         physical_activity = request.form['physical_activity']
         prior_fractures = request.form['prior_fractures']
         race_ethnicity = request.form['race_ethnicity']
@@ -83,7 +88,6 @@ def index():
         print('hormonal_changes:', hormonal_changes)
         print('medical_conditions:', medical_conditions)
         print('medications:', medications)
-        print('osteoporosis:', osteoporosis)
         print('physical_activity:', physical_activity)
         print('prior_fractures:', prior_fractures)
         print('race ethnicity:', race_ethnicity)
@@ -93,36 +97,35 @@ def index():
         ## create a non-scaled df
         df_nonscaled = pd.DataFrame({
             'age': [age],
-            'alcohol_consumption': [alcohol_consumption],
-            'body_weight': [body_weight],
-            'calcium_intake': [calcium_intake],
-            'family_history': [family_history],
             'gender': [gender],
             'hormonal_changes': [hormonal_changes],
+            'family_history': [family_history],
+            'race/ethnicity': [race_ethnicity],
+            'body_weight': [body_weight],
+            'calcium_intake': [calcium_intake],
+            'vitamin_d_intake': [vitamin_d_intake],
+            'physical_activity': [physical_activity],
+            'smoking': [smoking],
+            'alcohol_consumption': [alcohol_consumption],
             'medical_conditions': [medical_conditions],
             'medications': [medications],
-            'osteoporosis': [osteoporosis],
-            'physical_activity': [physical_activity],
             'prior_fractures': [prior_fractures],
-            'race_ethnicity': [race_ethnicity],
-            'smoking': [smoking],
-            'vitamin_d_intake': [vitamin_d_intake],
         })
 
         ## based on the values, get the ordinal encoding
         age = mapping_age[mapping_age['age'] == age]['age_ordinal'].values[0] # noqa
         print('age:', age)
-
+        
         alcohol_consumption = mapping_alcohol_consumption[mapping_alcohol_consumption['alcohol_consumption'] == alcohol_consumption]['alcohol_consumption_ordinal'].values[0] # noqa 
         print('alcohol_consumption:', alcohol_consumption)
 
-        body_weight = mapping_body_weight[mapping_body_weight['mapping_body_weight'] == body_weight]['body_weight_ordinal'].values[0] # noqa
+        body_weight = mapping_body_weight[mapping_body_weight['body_weight'] == body_weight]['body_weight_ordinal'].values[0] # noqa
         print('body_weight:', body_weight)
 
         calcium_intake = mapping_calcium_intake[mapping_calcium_intake['calcium_intake'] == calcium_intake]['calcium_intake_ordinal'].values[0] # noqa
         print('calcium_intake:', calcium_intake)
 
-        family_history = maping_family_history[maping_family_history['family_history_desc'] == family_history]['family_history_ordinal'].values[0] # noqa
+        family_history = maping_family_history[maping_family_history['family_history'] == family_history]['family_history_ordinal'].values[0] # noqa
         print('family_history:', family_history)
 
         gender = mapping_gender[mapping_gender['gender'] == gender]['gender_ordinal'].values[0] # noqa
@@ -136,10 +139,7 @@ def index():
         
         medications = mapping_medications[mapping_medications['medications'] == medications]['medications_ordinal'].values[0] # noqa
         print('medications:', medications)
-        
-        osteoporosis = mapping_osteoporosis[mapping_osteoporosis['osteoporosis'] == osteoporosis]['osteoporosis_ordinal'].values[0] # noqa
-        print('osteoporosis:', osteoporosis)
-        
+                
         physical_activity = mapping_physical_activity[mapping_physical_activity['physical_activity'] == physical_activity]['physical_activity_ordinal'].values[0] # noqa
         print('physical_activity:', physical_activity)
         
@@ -161,20 +161,19 @@ def index():
         ## create a dataframe with the values
         df = pd.DataFrame({
             'age': [age],
-            'alcohol_consumption': [alcohol_consumption],
-            'body_weight': [body_weight],
-            'calcium_intake': [calcium_intake],
-            'family_history': [family_history],
             'gender': [gender],
             'hormonal_changes': [hormonal_changes],
+            'family_history': [family_history],
+            'race/ethnicity': [race_ethnicity],
+            'body_weight': [body_weight],
+            'calcium_intake': [calcium_intake],
+            'vitamin_d_intake': [vitamin_d_intake],
+            'physical_activity': [physical_activity],
+            'smoking': [smoking],
+            'alcohol_consumption': [alcohol_consumption],
             'medical_conditions': [medical_conditions],
             'medications': [medications],
-            'osteoporosis': [osteoporosis],
-            'physical_activity': [physical_activity],
             'prior_fractures': [prior_fractures],
-            'race': [race],
-            'smoking': [smoking],
-            'vitamin_d_intake': [vitamin_d_intake],
         })
 
         print('df:', df)
@@ -182,16 +181,30 @@ def index():
         ## scale the values
         df_scaled = loaded_scaler.transform(df)
         print('df_scaled:', df_scaled)
-
+        
         ## make the prediction
         prediction = loaded_model.predict(df_scaled)
         print('ML PREDICTION: ', prediction[0])
 
         ## map the prediction to a string
         if prediction[0] == 0:
-            prediction = 'Female'
+            prediction = 'No osteoporosis'
         else:
-            prediction = 'Male'
+            prediction = 'Osteoporosis'
+        
+        ## generate the explanation
+        explainer = lime_tabular.LimeTabularExplainer(
+            training_data=loaded_X_train,
+            feature_names=loaded_X_columns,
+            class_names=['no osteoporosis', 'osteoporosis'],
+            mode='classification',
+        )
+
+        ## drop the inner list
+        df_scaled_ = df_scaled[0]
+        print('df_scaled_:', df_scaled_)
+        exp = explainer.explain_instance(df_scaled_, loaded_model.predict_proba, num_features=9)
+        exp_html = exp.as_html()
   
         ## conver df_nonscaled to dict
         df_nonscaled = df_nonscaled.to_dict('records')
@@ -204,6 +217,7 @@ def index():
             'index.html',
             prediction=prediction,
             df_nonscaled=df_nonscaled,
+            exp_html=exp_html,
             age_list=mapping_age_list,
             alcohol_consumption_list=mapping_alcohol_consumption_list,
             body_weight_list=mapping_body_weight_list,
