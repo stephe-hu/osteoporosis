@@ -63,8 +63,9 @@ def index():
     ## if request is post, then get the values from the form
     if request.method == 'POST':
         print('request.form:', request.form)
-
         age = request.form['age']
+        # convert age to integer right after extracting it from the form data
+        age = int(age)
         alcohol_consumption = request.form['alcohol_consumption']
         body_weight = request.form['body_weight']
         calcium_intake = request.form['calcium_intake']
@@ -131,8 +132,8 @@ def index():
         gender = mapping_gender[mapping_gender['gender'] == gender]['gender_ordinal'].values[0] # noqa
         print('gender:', gender)
 
-        hormonal_changes = mapping_hormonal_changes[mapping_hormonal_changes['hormonal_changes'] == hormonal_changes]['hormonal_changes_ordinal'].values[0] # noqa
-        print('hormonal_changes:', hormonal_changes)
+        hormonal_changes_ordinal = mapping_hormonal_changes[mapping_hormonal_changes['hormonal_changes'] == hormonal_changes]['hormonal_changes_ordinal'].values[0] # noqa
+        print('hormonal_changes:', hormonal_changes_ordinal)
         
         medical_conditions = mapping_medical_conditions[mapping_medical_conditions['medical_conditions'] == medical_conditions]['medical_conditions_ordinal'].values[0] # noqa
         print('medical_conditions:', medical_conditions)
@@ -162,7 +163,7 @@ def index():
         df = pd.DataFrame({
             'age': [age],
             'gender': [gender],
-            'hormonal_changes': [hormonal_changes],
+            'hormonal_changes': [hormonal_changes_ordinal],
             'family_history': [family_history],
             'race/ethnicity': [race_ethnicity],
             'body_weight': [body_weight],
@@ -194,7 +195,7 @@ def index():
         
         ## generate the explanation
         explainer = lime_tabular.LimeTabularExplainer(
-            training_data=loaded_X_train,
+            training_data=loaded_X_train.to_numpy(),
             feature_names=loaded_X_columns,
             class_names=['no osteoporosis', 'osteoporosis'],
             mode='classification',
