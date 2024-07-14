@@ -11,7 +11,7 @@ data_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/dataset/proces
 # model_dir = os.path.join(current_dir, 'model_dev', 'models')
 model_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/models'
 
-## load in values for ordinal encoding
+# load in values for ordinal encoding
 mapping_age = pd.read_csv(os.path.join(data_dir, 'mapping_age.csv'))
 mapping_alcohol_consumption = pd.read_csv(os.path.join(data_dir, 'mapping_alcohol_consumption.csv'))
 mapping_body_weight = pd.read_csv(os.path.join(data_dir, 'mapping_body_weight.csv'))
@@ -46,7 +46,7 @@ mapping_smoking_list = mapping_smoking['smoking'].tolist()
 mapping_vitamin_d_intake_list = mapping_vitamin_d_intake['vitamin_d_intake'].tolist()
 
 
-## load in the model, scaler
+# load in the model, scaler
 scaler_path = os.path.join(model_dir, 'osteoporosis_scalar.sav')
 loaded_scaler = pickle.load(open(scaler_path, 'rb'))
 model_path = os.path.join(model_dir, 'xgboost_model.sav')
@@ -60,7 +60,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    ## if request is post, then get the values from the form
+    # if request is post, then get the values from the form
     if request.method == 'POST':
         print('request.form:', request.form)
         age = request.form['age']
@@ -95,7 +95,7 @@ def index():
         print('smoking:', smoking)
         print('vitamin_d_intake:', vitamin_d_intake)
 
-        ## create a non-scaled df
+        # create a non-scaled df
         df_nonscaled = pd.DataFrame({
             'age': [age],
             'gender': [gender],
@@ -113,7 +113,7 @@ def index():
             'prior_fractures': [prior_fractures],
         })
 
-        ## based on the values, get the ordinal encoding
+        # based on the values, get the ordinal encoding
         age = mapping_age[mapping_age['age'] == age]['age_ordinal'].values[0] # noqa
         print('age:', age)
         
@@ -179,21 +179,21 @@ def index():
 
         print('df:', df)
 
-        ## scale the values
+        # scale the values
         df_scaled = loaded_scaler.transform(df)
         print('df_scaled:', df_scaled)
         
-        ## make the prediction
+        # make the prediction
         prediction = loaded_model.predict(df_scaled)
         print('ML PREDICTION: ', prediction[0])
 
-        ## map the prediction to a string
+        # map the prediction to a string
         if prediction[0] == 0:
             prediction = 'No osteoporosis'
         else:
             prediction = 'Osteoporosis'
         
-        ## generate the explanation
+        # generate the explanation
         explainer = lime_tabular.LimeTabularExplainer(
             training_data=loaded_X_train.to_numpy(),
             feature_names=loaded_X_columns,
@@ -201,19 +201,19 @@ def index():
             mode='classification',
         )
 
-        ## drop the inner list
+        # drop the inner list
         df_scaled_ = df_scaled[0]
         print('df_scaled_:', df_scaled_)
         exp = explainer.explain_instance(df_scaled_, loaded_model.predict_proba, num_features=9)
         exp_html = exp.as_html()
   
-        ## conver df_nonscaled to dict
+        # conver df_nonscaled to dict
         df_nonscaled = df_nonscaled.to_dict('records')
         df_nonscaled = df_nonscaled[0]
         print('df_nonscaled:', df_nonscaled)
 
 
-        ## return the prediction
+        # return the prediction
         return render_template(
             'index.html',
             prediction=prediction,
@@ -261,4 +261,4 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         debug=True, 
-        port=5001)
+        port=8080)

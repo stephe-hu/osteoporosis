@@ -12,7 +12,7 @@ data_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/dataset/proces
 # model_dir = os.path.join(current_dir, 'model_dev', 'models')
 model_dir = 'C:/Users/16462/python-projects/osteoporosis/model_dev/models'
 
-## load in values for ordinal encoding
+# load in values for ordinal encoding
 mapping_age = pd.read_csv(os.path.join(data_dir, 'mapping_age.csv'))
 mapping_alcohol_consumption = pd.read_csv(os.path.join(data_dir, 'mapping_alcohol_consumption.csv'))
 mapping_body_weight = pd.read_csv(os.path.join(data_dir, 'mapping_body_weight.csv'))
@@ -47,7 +47,7 @@ mapping_smoking_list = mapping_smoking['smoking'].tolist()
 mapping_vitamin_d_intake_list = mapping_vitamin_d_intake['vitamin_d_intake'].tolist()
 
 
-## load in the model, scaler
+# load in the model, scaler
 scaler_path = os.path.join(model_dir, 'osteoporosis_scalar.sav')
 loaded_scaler = pickle.load(open(scaler_path, 'rb'))
 model_path = os.path.join(model_dir, 'xgboost_model.sav')
